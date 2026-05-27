@@ -1,0 +1,16 @@
+# Validacion del PR: verifica que la imagen builda. No pushea nada.
+# No requiere credenciales AWS, sirve para PRs sin que ADO pida la SC.
+
+jobs:
+  - job: Validate
+    displayName: Build image (no push)
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - checkout: self
+
+      - script: |
+          set -euo pipefail
+          docker build --tag app-backend:ci-validate .
+          docker run --rm app-backend:ci-validate python -c "import app; print('import OK')"
+        displayName: docker build + smoke test
