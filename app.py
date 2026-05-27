@@ -18,6 +18,11 @@ def is_prime(n: int) -> bool:
     return True
 
 
+def is_palindrome(word: str) -> bool:
+    normalized = "".join(c.lower() for c in word if c.isalnum())
+    return bool(normalized) and normalized == normalized[::-1]
+
+
 @app.get("/health")
 def health():
     return jsonify(status="ok"), 200
@@ -33,6 +38,16 @@ def check_prime():
     except ValueError:
         return jsonify(error=f"'{raw}' is not a valid integer"), 400
     return jsonify(n=n, is_prime=is_prime(n))
+
+
+@app.get("/is-palindrome")
+def check_palindrome():
+    raw = request.args.get("word")
+    if raw is None:
+        return jsonify(error="missing query param 'word'"), 400
+    if not raw.strip():
+        return jsonify(error="'word' must not be empty"), 400
+    return jsonify(word=raw, is_palindrome=is_palindrome(raw))
 
 
 if __name__ == "__main__":
