@@ -1,5 +1,5 @@
-# Validacion del PR: secrets scan + Dockerfile lint + SCA + build + smoke test
-# + container best-practices + SBOM.
+# Validacion del PR: secrets scan + Dockerfile lint + Python lint/SAST + SCA
+# + build + smoke test + container best-practices + SBOM.
 # No requiere credenciales AWS, sirve para PRs sin que ADO pida la SC.
 
 jobs:
@@ -52,6 +52,26 @@ jobs:
             --no-progress \
             .
         displayName: Trivy fs scan (source SCA)
+
+      - script: |
+          set -euo pipefail
+          # Lint estatico de Python (estilo + best practices + posibles bugs).
+          # Bloquea en errors (E*, F*). Warnings de estilo no rompen por default
+          # del config — para tunearlo crear pyproject.toml con [tool.ruff].
+          pip install --no-cache-dir ruff==0.8.4
+          ruff check .
+        displayName: Ruff (Python lint)
+
+      - script: |
+          set -euo pipefail
+          # SAST especifico de Python: detecta hardcoded creds, weak crypto,
+          # SQL injection, eval/exec, etc.
+          # --skip B104: app.run(host="0.0.0.0") es intencional en contenedor
+          # K8s (es el bind hacia el Service). En PoC va asi; revisar si la
+          # app pasa a correr fuera de cluster.
+          pip install --no-cache-dir bandit==1.8.0
+          bandit --recursive --skip B104 --exclude ./.git .
+        displayName: Bandit (Python SAST)
 
       - script: |
           set -euo pipefail
