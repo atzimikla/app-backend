@@ -8,6 +8,7 @@ API Flask que expone si un entero es primo. PoC para validar Docker, Fury y GitO
 |---|---|---|
 | `GET` | `/health` | liveness/readiness, devuelve `{"status":"ok"}` |
 | `GET` | `/is-prime?n=<int>` | devuelve `{"n":<int>,"is_prime":<bool>}` |
+| `GET` | `/is-palindrome?word=<str>` | devuelve `{"word":<str>,"is_palindrome":<bool>}` |
 
 ## Correr local sin Docker
 
