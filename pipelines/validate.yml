@@ -32,7 +32,7 @@ jobs:
           set -euo pipefail
           # Trivy se usa para los 2 scans de SCA (fs + image) — instalamos una
           # sola vez aca.
-          TRIVY_VERSION="0.57.0"
+          TRIVY_VERSION="0.70.0"
           curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
             | tar -xz -C /tmp trivy
           sudo mv /tmp/trivy /usr/local/bin/
