@@ -1,4 +1,5 @@
-# Validacion del PR: secrets scan + Dockerfile lint + SCA + build + smoke test.
+# Validacion del PR: secrets scan + Dockerfile lint + SCA + build + smoke test
+# + container best-practices + SBOM.
 # No requiere credenciales AWS, sirve para PRs sin que ADO pida la SC.
 
 jobs:
@@ -69,3 +70,37 @@ jobs:
             --no-progress \
             app-backend:ci-validate
         displayName: Trivy image scan (container SCA)
+
+      - script: |
+          set -euo pipefail
+          # Container best-practices / CIS Docker Benchmark sobre la imagen
+          # buildeada. Bloquea solo en FATAL (CVE-style). WARN/INFO se logan
+          # como referencia pero no rompen el pipeline.
+          DOCKLE_VERSION="0.4.15"
+          curl -fsSL "https://github.com/goodwithtech/dockle/releases/download/v${DOCKLE_VERSION}/dockle_${DOCKLE_VERSION}_Linux-64bit.tar.gz" \
+            | tar -xz -C /tmp dockle
+          sudo mv /tmp/dockle /usr/local/bin/
+          dockle --exit-code 1 --exit-level FATAL app-backend:ci-validate
+        displayName: Dockle (container best practices)
+
+      - script: |
+          set -euo pipefail
+          # Genera Software Bill of Materials (SBOM) en formato CycloneDX.
+          # Es un inventario de paquetes / libs / binarios dentro de la imagen
+          # buildeada. No bloquea — se publica como artifact de la pipeline
+          # para que cualquier consumo posterior (auditoria, vuln tracking) lo
+          # pueda usar.
+          SYFT_VERSION="1.44.0"
+          curl -fsSL "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz" \
+            | tar -xz -C /tmp syft
+          sudo mv /tmp/syft /usr/local/bin/
+          syft app-backend:ci-validate -o cyclonedx-json=sbom.json
+          echo "=== SBOM summary ==="
+          syft app-backend:ci-validate -o table | head -50
+        displayName: Syft (generate SBOM)
+
+      - task: PublishPipelineArtifact@1
+        inputs:
+          path: $(System.DefaultWorkingDirectory)/sbom.json
+          artifact: sbom-backend-$(Build.BuildId)
+        displayName: Publish SBOM artifact
