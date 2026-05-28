@@ -1,0 +1,8 @@
+# Reglas de Dockle a ignorar — justificacion por cada una.
+#
+# DKL-DI-0005: "Clear apt-get caches"
+# Lo dispara una capa del python:3.12-slim upstream (apt-get install +
+# apt-get dist-clean en vez de rm -rf /var/lib/apt/lists). Es una capa
+# anterior a la nuestra, no podemos cambiarla sin migrar el base image.
+# Revisitar si cambiamos a otra base (alpine/distroless).
+DKL-DI-0005
