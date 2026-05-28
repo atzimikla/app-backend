@@ -1,4 +1,4 @@
-# Validacion del PR: secrets scan + Dockerfile lint + build de imagen + smoke test.
+# Validacion del PR: secrets scan + Dockerfile lint + SCA + build + smoke test.
 # No requiere credenciales AWS, sirve para PRs sin que ADO pida la SC.
 
 jobs:
@@ -30,6 +30,33 @@ jobs:
 
       - script: |
           set -euo pipefail
+          # SCA a nivel source: revisa requirements.txt contra PyPI Advisory DB.
+          # Falla en cualquier vulnerabilidad encontrada (por defecto pip-audit
+          # corta en exit 1). Ajustar threshold si genera ruido.
+          pip install --no-cache-dir pip-audit==2.7.3
+          pip-audit -r requirements.txt
+        displayName: pip-audit (Python deps SCA)
+
+      - script: |
+          set -euo pipefail
           docker build --tag app-backend:ci-validate .
           docker run --rm app-backend:ci-validate python -c "import app; print('import OK')"
         displayName: docker build + smoke test
+
+      - script: |
+          set -euo pipefail
+          # SCA a nivel container: scan de OS packages + langauge deps de la
+          # imagen recien buildeada. Bloquea solo en HIGH/CRITICAL CON fix
+          # upstream disponible (--ignore-unfixed evita ruido por CVEs que no
+          # podemos accionar todavia).
+          TRIVY_VERSION="0.57.0"
+          curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+            | tar -xz -C /tmp trivy
+          sudo mv /tmp/trivy /usr/local/bin/
+          trivy image \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 1 \
+            --no-progress \
+            app-backend:ci-validate
+        displayName: Trivy container scan (SCA)
