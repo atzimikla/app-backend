@@ -1,18 +1,19 @@
-# Pipeline raiz para app-backend.
-# Spec: build + push a ECR via OIDC (aws-ecr-pusher-backend-oidc).
+# Pipeline de CI para app-backend.
+# Spec: build + push a ECR via OIDC (aws-ecr-pusher-backend-oidc) + bump
+# del overlay dev en gitops-apps.
 # Tags publicados:
 #   - <short-sha>  (immutable identifier, para trazabilidad)
 #   - dev          (mutable, lo que apunta el overlay dev en gitops-apps)
+#
+# Validate corre en azure-pipelines-validate.yml (PRs contra develop).
+# Esta pipeline solo dispara en push a develop (post-merge).
 
 trigger:
   branches:
     include:
       - develop
 
-pr:
-  branches:
-    include:
-      - develop
+pr: none
 
 variables:
   AWS_REGION: us-east-1
@@ -20,15 +21,8 @@ variables:
   IMAGE_REPO: app-backend
 
 stages:
-  - stage: Validate
-    displayName: Validate
-    jobs:
-      - template: pipelines/validate.yml
-
   - stage: BuildAndPush
     displayName: Build and Push
-    dependsOn: Validate
-    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
     jobs:
       - template: pipelines/build-and-push.yml
         parameters:
@@ -39,7 +33,6 @@ stages:
   - stage: BumpGitops
     displayName: Bump gitops-apps with new SHA
     dependsOn: BuildAndPush
-    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
     jobs:
       - template: pipelines/bump-gitops.yml
         parameters:
