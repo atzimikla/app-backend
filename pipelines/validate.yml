@@ -30,12 +30,27 @@ jobs:
 
       - script: |
           set -euo pipefail
-          # SCA a nivel source: revisa requirements.txt contra PyPI Advisory DB.
-          # Falla en cualquier vulnerabilidad encontrada (por defecto pip-audit
-          # corta en exit 1). Ajustar threshold si genera ruido.
-          pip install --no-cache-dir pip-audit==2.7.3
-          pip-audit -r requirements.txt
-        displayName: pip-audit (Python deps SCA)
+          # Trivy se usa para los 2 scans de SCA (fs + image) — instalamos una
+          # sola vez aca.
+          TRIVY_VERSION="0.57.0"
+          curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
+            | tar -xz -C /tmp trivy
+          sudo mv /tmp/trivy /usr/local/bin/
+          trivy --version
+        displayName: Install trivy
+
+      - script: |
+          set -euo pipefail
+          # SCA a nivel source: scanea requirements.txt y otros manifests del
+          # repo en busca de deps con CVEs. Bloquea solo en HIGH/CRITICAL con
+          # fix upstream disponible.
+          trivy fs \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 1 \
+            --no-progress \
+            .
+        displayName: Trivy fs scan (source SCA)
 
       - script: |
           set -euo pipefail
@@ -45,18 +60,12 @@ jobs:
 
       - script: |
           set -euo pipefail
-          # SCA a nivel container: scan de OS packages + langauge deps de la
-          # imagen recien buildeada. Bloquea solo en HIGH/CRITICAL CON fix
-          # upstream disponible (--ignore-unfixed evita ruido por CVEs que no
-          # podemos accionar todavia).
-          TRIVY_VERSION="0.57.0"
-          curl -fsSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
-            | tar -xz -C /tmp trivy
-          sudo mv /tmp/trivy /usr/local/bin/
+          # SCA a nivel container: scan de OS packages + language deps de la
+          # imagen recien buildeada. Misma politica que trivy fs.
           trivy image \
             --severity HIGH,CRITICAL \
             --ignore-unfixed \
             --exit-code 1 \
             --no-progress \
             app-backend:ci-validate
-        displayName: Trivy container scan (SCA)
+        displayName: Trivy image scan (container SCA)
